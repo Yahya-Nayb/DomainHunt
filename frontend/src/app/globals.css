@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0B0E14;
+  --foreground: #F8FAFC;
+  --card: #151921;
+  --accent: #10B981;
+  --accent-foreground: #022c22;
+}
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-white/5 backdrop-blur-md border border-white/10;
+  }
+  .card-glow {
+    @apply hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:border-accent/50 transition-all duration-300;
+  }
+  .radar-sweep {
+    background: conic-gradient(from 0deg, transparent 270deg, var(--accent) 360deg);
+    animation: rotate 4s linear infinite;
+  }
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
