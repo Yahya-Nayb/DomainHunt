@@ -1,5 +1,6 @@
-import { Controller, Get, Param, Logger, Headers } from '@nestjs/common';
+import { Controller, Logger, Body, Post } from '@nestjs/common';
 import { GeneratorService } from './generator.service';
+import { GenerateDto } from './types';
 
 @Controller('generator')
 export class GeneratorController {
@@ -7,25 +8,36 @@ export class GeneratorController {
 
   constructor(private readonly generatorService: GeneratorService) {}
 
-  @Get('run/:niche')
+  @Post('run')
   async runGenerator(
-    @Param('niche') niche: string,
-    @Headers('x-gemini-key') apiKey?: string,
+    @Body('niche') niche: string,
+    @Body('userApiKey') userApiKey: string,
   ) {
     try {
-      this.logger.log(`Starting domain generation for niche: ${niche}...`);
-      const result = await this.generatorService.generateAndSave(niche, apiKey);
-      
-      return {
+      this.logger.log(`Starting domain hunt for niche: ${niche}...`);
+
+      // نتحقق من وجود التوكن والنiche
+      if (!niche || !userApiKey) {
+        throw new Error('Niche and API Key are required');
+      }
+
+      const dto: GenerateDto = {
         niche,
-        ...result,
-        message: 'Generation Complete',
+        apiKey: userApiKey,
       };
-    } catch (error) {
-      this.logger.error('Generation Failed: ' + error.message);
+
+      const result = await this.generatorService.huntDomains(dto);
+
       return {
-        message: 'Generation Failed',
-        error: error.message,
+        message: 'Hunt Complete',
+        ...result,
+      };
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error('Hunt Failed: ' + errMsg);
+      return {
+        message: 'Hunt Failed',
+        error: errMsg,
       };
     }
   }
