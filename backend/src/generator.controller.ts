@@ -13,10 +13,10 @@ export class GeneratorController {
     @Body('niche') niche: string,
     @Body('userApiKey') userApiKey: string,
   ) {
+    console.log('niche >> ', niche);
     try {
       this.logger.log(`Starting domain hunt for niche: ${niche}...`);
 
-      // نتحقق من وجود التوكن والنiche
       if (!niche || !userApiKey) {
         throw new Error('Niche and API Key are required');
       }

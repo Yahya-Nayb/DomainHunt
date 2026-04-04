@@ -6,12 +6,7 @@ import {
 import { AIService } from './ai.service';
 import { ValidatorService } from './validator.service';
 import { from, mergeMap, toArray, lastValueFrom } from 'rxjs';
-import {
-  BrandingComponents,
-  DomainResult,
-  GenerateDto,
-  HuntResponse,
-} from './types';
+import { GenerateDto, HuntResponse } from './types';
 
 @Injectable()
 export class GeneratorService {
@@ -26,127 +21,135 @@ export class GeneratorService {
   ) {}
 
   async huntDomains(dto: GenerateDto): Promise<HuntResponse> {
-    this.logger.log(
-      `[Phase 1] Requesting AI Branding Components for niche: ${dto.niche}...`,
-    );
+    this.logger.log(`[Phase 1] Requesting AI DNA for niche: ${dto.niche}...`);
 
-    // Phase 1: AI Component Generation
     const components = await this.aiService.generateBrandingComponents(
       dto.niche,
       dto.apiKey,
     );
 
     if (!components || !components.seeds || components.seeds.length === 0) {
-      throw new InternalServerErrorException(
-        'AI returned empty results for this niche.',
-      );
+      throw new InternalServerErrorException('AI returned empty DNA.');
     }
 
-    // Phase 2: Domain Combination Generation
     const allGenerated = this.buildDomainCombinations(components);
     this.logger.log(
-      `[Phase 2] Total Unique Names Generated: ${allGenerated.length}`,
+      `[Phase 2] Total Unique Names with Meanings: ${allGenerated.length}`,
     );
 
     if (allGenerated.length === 0) {
       return { niche: dto.niche, components, domains: [] };
     }
 
-    // Phase 3: Domain Validation
-    const availableDomains: DomainResult[] = [];
+    const validatedDomains: any[] = [];
 
     for (let i = 0; i < allGenerated.length; i += this.BATCH_SIZE) {
       const batch = allGenerated.slice(i, i + this.BATCH_SIZE);
       const results = await lastValueFrom(
         from(batch).pipe(
-          mergeMap(async (domain): Promise<DomainResult | null> => {
+          mergeMap(async (item): Promise<any | null> => {
             const status = await this.validatorService.checkAvailability(
-              domain.name,
-              domain.extension,
+              item.name,
+              item.extension,
             );
-            return status === 'available' ? domain : null;
+            return status === 'available' ? item : null;
           }, this.CONCURRENCY_LIMIT),
           toArray(),
         ),
       );
-      availableDomains.push(
-        ...results.filter((r): r is DomainResult => r !== null),
-      );
+      validatedDomains.push(...results.filter((r) => r !== null));
     }
 
-    this.logger.log(
-      `[Phase 3] Total Available Domains found: ${availableDomains.length}`,
-    );
-
-    if (availableDomains.length === 0) {
-      return { niche: dto.niche, components, domains: [] };
-    }
-
-    const availableStringList = availableDomains.map(
-      (d) => `${d.name}.${d.extension}`,
-    );
+    this.logger.log(`[Phase 3] Total Available: ${validatedDomains.length}`);
 
     return {
       niche: dto.niche,
       components: components,
-      domains: availableStringList,
+      domains: validatedDomains.map((d) => ({
+        name: `${d.name}.${d.extension}`,
+        description: d.description,
+      })),
     };
   }
 
-  private buildDomainCombinations(
-    components: BrandingComponents,
-  ): DomainResult[] {
-    const { seeds, suffixes, prefixes, niche } = components;
+  private buildDomainCombinations(components: any): any[] {
+    const { seeds = [], suffixes = [], prefixes = [], niche } = components;
     const nicheToken = niche.toLowerCase().trim().replace(/\s+/g, '');
+    const uniqueDomainsMap = new Map<string, any>();
+    const MAX_DOMAINS = 100;
 
-    const uniqueDomainsMap = new Map<string, DomainResult>();
+    const prefixUsageCount = new Map<string, number>();
+    const MAX_PER_PREFIX = 3;
 
-    const addUnique = (name: string, extension: string) => {
+    const addUnique = (
+      name: string,
+      extension: string,
+      description: string,
+      prefixKey?: string,
+    ) => {
+      if (uniqueDomainsMap.size >= MAX_DOMAINS) return;
+
       const normalizedName = name.toLowerCase().trim();
-      const normalizedExt = extension.toLowerCase().trim();
-      if (normalizedName.length >= 4 && normalizedName.length <= 15) {
-        const key = `${normalizedName}:${normalizedExt}`;
+      const key = `${normalizedName}:${extension}`;
+
+      if (prefixKey) {
+        const count = prefixUsageCount.get(prefixKey) || 0;
+        if (count >= MAX_PER_PREFIX) return;
+        prefixUsageCount.set(prefixKey, count + 1);
+      }
+
+      if (normalizedName.length >= 4 && normalizedName.length <= 16) {
         if (!uniqueDomainsMap.has(key)) {
           uniqueDomainsMap.set(key, {
             name: normalizedName,
-            extension: normalizedExt,
+            extension,
+            description,
           });
         }
       }
     };
 
-    const safePrefixes = prefixes ?? [];
-    const safeSuffixes = suffixes ?? [];
-    const safeSeeds = seeds ?? [];
+    const tld = this.TLDS[0];
 
-    // Two-word names: prefix + niche, niche + suffix, prefix + seed, seed + suffix
-    if (nicheToken.length > 0) {
-      for (const pre of safePrefixes) {
-        for (const tld of this.TLDS) {
-          addUnique(`${pre}${nicheToken}`, tld);
-        }
-      }
-      for (const suff of safeSuffixes) {
-        for (const tld of this.TLDS) {
-          addUnique(`${nicheToken}${suff}`, tld);
-        }
+    for (const pre of prefixes) {
+      for (const seed of seeds) {
+        addUnique(
+          `${pre.word}${seed.word}`,
+          tld,
+          `${pre.essence} meets ${seed.essence}`,
+          pre.word,
+        );
       }
     }
 
-    for (const pre of safePrefixes) {
-      for (const seed of safeSeeds) {
-        for (const tld of this.TLDS) {
-          addUnique(`${pre}${seed}`, tld);
-        }
+    for (const seed of seeds) {
+      for (const suff of suffixes) {
+        addUnique(
+          `${seed.word}${suff.word}`,
+          tld,
+          `${seed.essence} focusing on ${suff.essence}`,
+          seed.word,
+        );
       }
     }
 
-    for (const seed of safeSeeds) {
-      for (const suff of safeSuffixes) {
-        for (const tld of this.TLDS) {
-          addUnique(`${seed}${suff}`, tld);
-        }
-      }
+    // 3. Prefix + Niche
+    for (const pre of prefixes) {
+      addUnique(
+        `${pre.word}${nicheToken}`,
+        tld,
+        `${pre.essence} for ${niche}`,
+        pre.word,
+      );
+    }
+
+    // 4. Niche + Suffix
+    for (const suff of suffixes) {
+      addUnique(
+        `${nicheToken}${suff.word}`,
+        tld,
+        `${niche} driven by ${suff.essence}`,
+      );
     }
 
     return Array.from(uniqueDomainsMap.values());

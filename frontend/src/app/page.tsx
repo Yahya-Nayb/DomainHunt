@@ -131,17 +131,17 @@ export default function Home() {
             <Key size={16} className="text-white/40 group-focus-within:text-accent transition-colors" />
             <input
               type="password"
-              placeholder="Enter Gemini API Key (Optional)"
+              placeholder="Enter Groq API Key (Requied)"
               value={apiKey}
               onChange={handleApiKeyChange}
               className="flex-1 bg-transparent border-none focus:outline-none text-white text-sm placeholder:text-white/20 font-mono tracking-tight"
             />
             <div className="text-[10px] text-white/30 border border-white/10 px-2 py-0.5 rounded uppercase tracking-wider">BYOK</div>
           </div>
-          <p className="text-[10px] text-white/20 mt-2 text-left px-1">
+          <p className="text-[10px] text-white/40 mt-2 text-left px-1">
             Don&apos;t have a key? Get one free from{' '}
-            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-accent/50 hover:text-accent underline transition-colors">
-              Google AI Studio
+            <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-accent/50 hover:text-accent underline transition-colors">
+              Grop Console
             </a>
             .
           </p>
@@ -166,7 +166,7 @@ export default function Home() {
               type="submit"
               disabled={isLoading}
               className={cn(
-                'bg-accent hover:bg-accent/90 disabled:bg-white/5 disabled:text-white/20 text-accent-foreground font-black px-8 py-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-[0_4px_20px_rgba(16,185,129,0.3)]',
+                'bg-accent hover:bg-accent/90 cursor-pointer disabled:bg-white/5 disabled:text-white/20 text-accent-foreground font-black px-8 py-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 shadow-[0_4px_20px_rgba(16,185,129,0.3)]',
                 isLoading && 'animate-pulse',
               )}>
               <Radar size={20} className={isLoading ? 'animate-spin' : ''} />

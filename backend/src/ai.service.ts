@@ -6,31 +6,27 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
-
-export interface BrandingComponents {
-  niche: string;
-  seeds: string[];
-  suffixes: string[];
-  prefixes: string[];
-}
+import { BrandingComponents } from './types';
 
 @Injectable()
 export class AIService {
   private readonly logger = new Logger(AIService.name);
-  private readonly GITHUB_ENDPOINT = 'https://models.inference.ai.azure.com';
-  private readonly MODEL_NAME = 'Llama-3.3-70B-Instruct';
+
+  private readonly GROQ_ENDPOINT = 'https://api.groq.com/openai/v1';
+  private readonly MODEL_NAME = 'llama-3.1-8b-instant';
 
   constructor(private configService: ConfigService) {}
 
   private getClient(userApiKey?: string): OpenAI {
+    console.log('userApiKey >> ', userApiKey);
     if (!userApiKey) {
       throw new UnauthorizedException(
-        'GitHub Token is required to start hunting.',
+        'Groq API Key is required to start hunting.',
       );
     }
     return new OpenAI({
       apiKey: userApiKey.trim(),
-      baseURL: this.GITHUB_ENDPOINT,
+      baseURL: this.GROQ_ENDPOINT,
     });
   }
 
@@ -41,40 +37,79 @@ export class AIService {
     const client = this.getClient(userApiKey);
 
     const escapedNiche = niche.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    const prompt = `Task: Generate high-end, two-word English branding components for the Niche: "${escapedNiche}".
+    const prompt = `Role: World-Class Brand Strategist & Lexicographer.
+Task: Generate elite, two-word English branding components for the Niche: "${escapedNiche}".
 
-Core Rules:
-- Strict Two-Word Rule: Every resulting domain name must be exactly TWO real English dictionary words concatenated (no space). One word MUST be the niche/industry itself OR a direct synonym from your seeds list.
-- NO Affixes: Do not use prefixes like "pre-", "anti-" or suffixes like "-ify", "-ly", "-ize". Only whole, standalone dictionary words.
-- Radio-Call Integrity: Every word must be trivial to spell correctly after hearing it once.
-- BANNED in any word: silent letters (e.g. debt, light), ambiguous phonetics (e.g. ph, ch pronounced as k, c as s), and double letters that change or obscure sound.
-- REQUIRED: Hard, clear consonants and simple vowels (e.g. Snap, Go, Base, Hub, Sky). Prefer short, common spellings.
--If the niche is multiple words (e.g., 'Pro Gear'), treat the primary keyword (e.g., 'Gear') as the anchor and use the other words (e.g., 'Pro') to influence the style of seeds, but always output exactly TWO dictionary words in total
-Output Structure (JSON only, no markdown or prose):
+--- THE 4 COMMANDMENTS OF ELITE BRANDING ---
+
+1. DICTIONARY PURITY & PHONETICS: Use ONLY complete, high-value English words found in a standard dictionary. 
+   - STRICT BAN: No fragments (Cereb), No abbreviations (Sync/Tech), No "Baby-talk" endings (Linky, Nodey, Bytez, Fluxx).
+   - PHONETICS: Prioritize Hard Plosives (K, T, P, B, G, D). Every word must pass the "Radio Test" (easy to spell over phone).
+
+2. METAPHORIC ARCHITECTURE: Focus on "Agentic" metaphors symbolizing intelligence, direction, and strength.
+   - PREFERRED LEXICON: [Nexus, Vector, Forge, Grid, Logic, Axis, Byte, Flux, Pilot, Sentry, Oracle, Signal, Core, Node, Base, Volt, Glyph, Path, Cipher, Catalyst].
+
+3. SEMANTIC EXCLUSION: Strictly FORBIDDEN to use the niche name "${escapedNiche}", "AI", "Agent", or functional suffixes like "-er", "-or", "-ator". 
+
+4. POSITIVE POWER: All words must evoke growth, precision, or resilience. Strictly FORBIDDEN: [Void, Null, Static, Psycho, Dead, Pulse, Stop].
+
+--- OUTPUT LOGIC ---
+- Each word must be 3-7 characters long to ensure the combined domain stays under 14 chars.
+- ESSENCE RULE: Provide a powerful brand statement. It MUST explicitly mention the word.
+  - Example: For "Cipher", essence is "The Cipher of encrypted intelligence".
+
+--- THE DICTIONARY ENFORCEMENT (STRICT UPDATE) ---
+1. ABSOLUTELY NO SUFFIXES AS WORDS: Strictly FORBIDDEN to use 'ics', 'al', 'ian', 'nexa', 'rize', 'bytez', 'nodey'. These are TRASH and will break the system.
+2. NO PSEUDO-LATIN: Do not add 'a' or 'o' to words (e.g., No 'Nexav', No 'Vectoro').
+3. COMPACT ELITE LIST: If you run out of ideas for 15 items, use these elite roots: 
+   [Vault, Bolt, Shield, Iron, Lock, Guard, Fort, Grid, Node, Flux, Axis, Core, Base, Zinc, Steel, Glyph, Cipher, Catalyst, Pilot, Sentry].
+
+REQUIRED STRUCTURE (Strict RAW JSON):
 {
   "niche": "${escapedNiche}",
-  "seeds": [5 clear synonymous English words for the niche—each a single standalone word, same constraints as above],
-  "prefixes": [5 punchy English nouns/verbs to place BEFORE the niche or a seed (e.g. Open, Smart, Blue)—single words only],
-  "suffixes": [5 solid English nouns/verbs to place AFTER the niche or a seed (e.g. Path, Grid, Box)—single words only]
+  "formula": "Prefix.essence + Seed.essence",
+  "seeds": [ { "word": "Word", "essence": "Brand statement with Word" } ],
+  "prefixes": [ { "word": "Word", "essence": "Brand statement with Word" } ],
+  "suffixes": [ { "word": "Word", "essence": "Brand statement with Word" } ]
 }
 
-Final combinations must read as Prefix+Niche, Niche+Suffix, Prefix+Seed, or Seed+Suffix (concatenated, lowercase when used as domains). Output ONLY the JSON object.`;
-
+*Note: Populate each array with exactly 15 unique, high-entropy items. Output ONLY raw JSON.*`;
     try {
-      this.logger.log(`Requesting ${this.MODEL_NAME} for niche: ${niche}`);
+      this.logger.log(
+        `Requesting Groq (${this.MODEL_NAME}) for niche: ${niche}`,
+      );
 
       const response = await client.chat.completions.create({
         model: this.MODEL_NAME,
-        messages: [{ role: 'user', content: prompt }],
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a professional domain branding engine. Output ONLY raw JSON.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
         response_format: { type: 'json_object' },
-        temperature: 0.8,
+        temperature: 0.7,
       });
 
       const content = response.choices[0]?.message?.content || '{}';
-      return JSON.parse(content) as BrandingComponents;
+
+      const cleanJson = content.replace(/```json|```/g, '').trim();
+      return JSON.parse(cleanJson) as BrandingComponents;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`GitHub AI (Llama 3.3) Error: ${message}`);
+      this.logger.error(`Groq Engine Error: ${message}`);
+
+      if (message.includes('429')) {
+        throw new InternalServerErrorException(
+          'Rate limit exceeded. Please wait a moment before the next hunt.',
+        );
+      }
+
       throw new InternalServerErrorException(`AI Engine failed: ${message}`);
     }
   }
