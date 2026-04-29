@@ -7,10 +7,11 @@ import { cn } from '@/lib/utils';
 
 interface DomainCardProps {
   name: string;
+  description: string;
   index: number;
 }
 
-export const DomainCard = ({ name, index }: DomainCardProps) => {
+export const DomainCard = ({ name, description, index }: DomainCardProps) => {
   const [copied, setCopied] = useState(false);
 
   // Generate a stable score based on name
@@ -47,8 +48,14 @@ export const DomainCard = ({ name, index }: DomainCardProps) => {
         </button>
       </div>
 
-      <h3 className="text-2xl font-bold text-white mb-6 tracking-tight">{name}</h3>
-
+      <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">{name}</h3>
+      <motion.p
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.05 + 0.3, duration: 0.5 }}
+        className="text-sm text-zinc-400 italic mb-6 leading-relaxed">
+        {description}
+      </motion.p>
       <div className="flex gap-3">
         <a
           href={buyUrl}

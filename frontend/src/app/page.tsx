@@ -13,6 +13,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<string[]>([]);
+  const [strategy, setStrategy] = useState('');
   const [totalAvailable, setTotalAvailable] = useState(0);
   const [statusMessage, setStatusMessage] = useState('Initializing...');
   const currentYear = new Date().getFullYear();
@@ -88,17 +89,18 @@ export default function Home() {
         }),
       });
       const data = await response.json();
-
+      console.log("data >>> ",data)
       if (response.ok) {
         setResults(data.domains || []);
-        setTotalAvailable(data.domains.length || 0);
+        setStrategy(data.strategy || '');
+        setTotalAvailable(data.domains?.length || 0);
         setProgress(6);
-        toast.success(`Hunt Successful! ${data.totalAvailable} available.`);
+        toast.success(`Hunt Successful! ${data.domains?.length || 0} available.`);
       } else {
         toast.error(data.message || 'The hunt failed. Our AI scouts were ambushed.');
       }
     } catch (error) {
-      toast.error('Connection lost. The radar is offline.');
+      toast.error('Connection lost. The radar is offline, please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -214,8 +216,8 @@ export default function Home() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {results.map((domain, index) => (
-                <DomainCard key={domain} name={domain} index={index} />
+              {results.map((domainName, index) => (
+                <DomainCard key={domainName} name={domainName} description={strategy} index={index} />
               ))}
             </div>
           </motion.div>
